@@ -78,6 +78,17 @@ resource "azurerm_dns_txt_record" "github_challenge" {
   }
 }
 
+resource "azurerm_dns_txt_record" "github_organization_challenge" {
+  name                = "_gh-OtaNix-ry-o"
+  resource_group_name = azurerm_resource_group.dns_rg.name
+  zone_name           = azurerm_dns_zone.dns_zone.name
+  ttl                 = 300
+
+  record {
+    value = "cd376abbac"
+  }
+}
+
 resource "azurerm_dns_mx_record" "mail" {
   name                = "@"
   resource_group_name = azurerm_resource_group.dns_rg.name
