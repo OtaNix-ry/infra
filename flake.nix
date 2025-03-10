@@ -23,6 +23,13 @@
     packages = forEachSystem (system: {
       devenv-up = self.devShells.${system}.default.config.procfileScript;
       devenv-test = self.devShells.${system}.default.config.test;
+
+      azure-image = (nixpkgs.lib.nixosSystem {
+        system = "x86_64-linux";
+        modules = [
+          ./image/configuration.nix
+        ];
+      }).config.system.build.azureImage;
     });
 
     devShells =
