@@ -43,13 +43,19 @@
               set -euo pipefail
               set -x
 
-              group=''${group:-vm-rg}
+              group=''${group:-vm-img-rg}
               location=''${location:-northeurope}
               img_name=''${img_name:-nixos-image}
               img_file=''${img_file:-$(nix build .#azure-image --no-link --print-out-paths | xargs readlink -f)/disk.vhd}
+              clean=''${clean:-}
 
               if ! ${az} group show -n "$group" &>/dev/null; then
                 ${az} group create --name "$group" --location "$location"
+              fi
+
+              if [[ -n "$clean" ]]; then
+                ${az} image delete -g "$group" -n "$img_name"
+                ${az} disk delete -g "$group" -n "$img_name" --yes
               fi
 
               if ! ${az} disk show -g "$group" -n "$img_name" &>/dev/null; then
@@ -58,6 +64,8 @@
                 ${az} disk create \
                   --resource-group "$group" \
                   --name "$img_name" \
+                  --hyper-v-generation V2 \
+                  --sku Premium_LRS \
                   --for-upload true --upload-size-bytes "$bytes"
                 sasurl="$(
                   ${az} disk grant-access \
@@ -76,16 +84,18 @@
               fi
 
               if ! ${az} image show -g "$group" -n "$img_name" &>/dev/null; then
-                diskid="$(${az} disk show -g "$group" -n "$img_name" -o json | jq -r .id)"
+                diskid="$(${az} disk show -g "$group" -n "$img_name" -o json | ${jq} -r .id)"
 
                 ${az} image create \
                   --resource-group "$group" \
                   --name "$img_name" \
                   --source "$diskid" \
+                  --storage-sku Premium_LRS \
+                  --hyper-v-generation V2 \
                   --os-type "linux" >/dev/null
               fi
 
-              imageid="$(${az} image show -g "$group" -n "$img_name" -o json | jq -r .id)"
+              imageid="$(${az} image show -g "$group" -n "$img_name" -o json | ${jq} -r .id)"
               echo "$imageid"
             '';
 

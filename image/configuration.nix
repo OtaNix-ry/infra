@@ -1,4 +1,10 @@
-{ config, lib, pkgs, modulesPath, ... }:
+{
+  config,
+  lib,
+  pkgs,
+  modulesPath,
+  ...
+}:
 {
   imports = [
     "${modulesPath}/virtualisation/azure-common.nix"
@@ -17,6 +23,15 @@
   services.openssh.enable = true;
   services.openssh.settings.PasswordAuthentication = false;
   security.sudo.wheelNeedsPassword = false;
+
+  services.nginx = {
+    enable = true;
+    virtualHosts._ = {
+      extraConfig = ''
+        return 200 "tervetuloa!"
+      '';
+    };
+  };
 
   users.users.otanix = {
     isNormalUser = true;
