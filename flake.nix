@@ -41,13 +41,34 @@
             in
             pkgs.writeShellScriptBin "otanix-upload-image" ''
               set -euo pipefail
-              set -x
 
               group=''${group:-vm-img-rg}
               location=''${location:-northeurope}
               img_name=''${img_name:-nixos-image}
               img_file=''${img_file:-$(nix build .#azure-image --no-link --print-out-paths | xargs readlink -f)/disk.vhd}
-              clean=''${clean:-}
+
+              outPathDefault=
+              if [[ "$img_file" == /nix/store/*/disk.vhd ]] ; then
+                outPathDefault=''${img_file%/disk.vhd}
+              fi
+              outPath=''${outPath:-$outPathDefault}
+
+              oldResources=$(${az} resource list)
+              oldDiskId=$(${jq} --raw-output '.[] | select(.name=="nixos-image" and .type == "Microsoft.Compute/disks") | .id' <<< "$oldResources")
+              oldOutPath=$(${jq} --raw-output '.[] | select(.name=="nixos-image" and .type == "Microsoft.Compute/disks") | .tags.outPath' <<< "$oldResources")
+
+              set -x
+
+              cleanDefault=
+              if [[ "$outPath" != "$oldOutPath" ]] ; then
+                cleanDefault=1
+              fi
+              if [[ -z "$oldDiskId" ]] ; then
+                # If the empty, there's probably no disk, and nothing to clean?
+                cleanDefault=
+              fi
+              clean=''${clean:-$cleanDefault}
+
 
               if ! ${az} group show -n "$group" &>/dev/null; then
                 ${az} group create --name "$group" --location "$location"
@@ -59,13 +80,14 @@
               fi
 
               if ! ${az} disk show -g "$group" -n "$img_name" &>/dev/null; then
-                bytes="$(stat -c %s $img_file)"
+                bytes="$(stat -c %s "$img_file")"
                 timeout=''${timeout:-$(( 60 * 60 ))} # disk access token timeout
                 ${az} disk create \
                   --resource-group "$group" \
                   --name "$img_name" \
                   --hyper-v-generation V2 \
                   --sku Premium_LRS \
+                  --tags outPath="$outPath" \
                   --for-upload true --upload-size-bytes "$bytes"
                 sasurl="$(
                   ${az} disk grant-access \
@@ -92,6 +114,7 @@
                   --source "$diskid" \
                   --storage-sku Premium_LRS \
                   --hyper-v-generation V2 \
+                  --tags outPath="$outPath" \
                   --os-type "linux" >/dev/null
               fi
 
