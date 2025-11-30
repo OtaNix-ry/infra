@@ -100,178 +100,130 @@ resource "azurerm_dns_mx_record" "mail" {
   ttl = 3600
 }
 
-resource "azurerm_resource_group" "vm_rg" {
-  name     = "vm-rg"
-  location = local.resource_group_location
+resource "azurerm_dns_a_record" "vm" {
+  name                = "vm"
+  resource_group_name = azurerm_resource_group.dns_rg.name
+  zone_name           = azurerm_dns_zone.dns_zone.name
+  ttl                 = 300
+  records             = [azurerm_public_ip.nixos_pip.ip_address]
 }
 
-resource "azurerm_virtual_network" "vm" {
-  name                = "vm-network"
+resource "azurerm_dns_a_record" "nextcloud" {
+  name                = "nextcloud"
+  resource_group_name = azurerm_resource_group.dns_rg.name
+  zone_name           = azurerm_dns_zone.dns_zone.name
+  ttl                 = 300
+  records             = [azurerm_public_ip.nixos_pip.ip_address]
+}
+
+resource "azurerm_resource_group" "nixos_rg" {
+  name     = "nixos-resources"
+  location = "North Europe"
+}
+
+resource "azurerm_virtual_network" "nixos_vnet" {
+  name                = "nixos-network"
   address_space       = ["10.0.0.0/16"]
-  location            = azurerm_resource_group.vm_rg.location
-  resource_group_name = azurerm_resource_group.vm_rg.name
+  location            = azurerm_resource_group.nixos_rg.location
+  resource_group_name = azurerm_resource_group.nixos_rg.name
 }
 
-resource "azurerm_subnet" "vm" {
-  name                 = "vm"
-  resource_group_name  = azurerm_resource_group.vm_rg.name
-  virtual_network_name = azurerm_virtual_network.vm.name
-  address_prefixes     = ["10.0.2.0/24"]
+resource "azurerm_subnet" "nixos_subnet" {
+  name                 = "internal"
+  resource_group_name  = azurerm_resource_group.nixos_rg.name
+  virtual_network_name = azurerm_virtual_network.nixos_vnet.name
+  address_prefixes     = ["10.0.1.0/24"]
 }
 
-resource "azurerm_public_ip" "pip" {
-  name                = "vm-pip"
-  resource_group_name = azurerm_resource_group.vm_rg.name
-  location            = azurerm_resource_group.vm_rg.location
+resource "azurerm_public_ip" "nixos_pip" {
+  name                = "nixos-pip"
+  resource_group_name = azurerm_resource_group.nixos_rg.name
+  location            = azurerm_resource_group.nixos_rg.location
   allocation_method   = "Static"
-  domain_name_label   = local.hostname
 }
 
-resource "azurerm_network_interface" "vm" {
-  name                = "vm-nic"
-  location            = azurerm_resource_group.vm_rg.location
-  resource_group_name = azurerm_resource_group.vm_rg.name
+resource "azurerm_network_security_group" "nixos_nsg" {
+  name                = "nixos-nsg"
+  location            = azurerm_resource_group.nixos_rg.location
+  resource_group_name = azurerm_resource_group.nixos_rg.name
+
+  security_rule {
+    name                       = "SSH"
+    priority                   = 1001
+    direction                  = "Inbound"
+    access                     = "Allow"
+    protocol                   = "Tcp"
+    source_port_range          = "*"
+    destination_port_range     = "22"
+    source_address_prefix      = "*"
+    destination_address_prefix = "*"
+  }
+}
+
+resource "azurerm_network_interface" "nixos_nic" {
+  name                = "nixos-nic"
+  location            = azurerm_resource_group.nixos_rg.location
+  resource_group_name = azurerm_resource_group.nixos_rg.name
 
   ip_configuration {
-    name                          = "primary"
-    subnet_id                     = azurerm_subnet.vm.id
+    name                          = "internal"
+    subnet_id                     = azurerm_subnet.nixos_subnet.id
     private_ip_address_allocation = "Dynamic"
-    public_ip_address_id          = azurerm_public_ip.pip.id
+    public_ip_address_id          = azurerm_public_ip.nixos_pip.id
   }
 }
 
-resource "azurerm_network_security_group" "vm" {
-  name                = "vm"
-  location            = azurerm_resource_group.vm_rg.location
-  resource_group_name = azurerm_resource_group.vm_rg.name
+resource "azurerm_network_interface_security_group_association" "nixos_nic_assoc" {
+  network_interface_id      = azurerm_network_interface.nixos_nic.id
+  network_security_group_id = azurerm_network_security_group.nixos_nsg.id
 }
 
-resource "azurerm_network_interface_security_group_association" "main" {
-  network_interface_id      = azurerm_network_interface.vm.id
-  network_security_group_id = azurerm_network_security_group.vm.id
-}
+resource "azurerm_linux_virtual_machine" "nixos_vm" {
+  name                = "nixos-machine"
+  resource_group_name = azurerm_resource_group.nixos_rg.name
+  location            = azurerm_resource_group.nixos_rg.location
+  
+  # You can now use ANY size, including v2/v3
+  size                = "Standard_B2s_v2" 
+  
+  # IMPORTANT: Secure Boot must be OFF for NixOS
+  secure_boot_enabled = false
+  
+  admin_username      = "otanix"
+  network_interface_ids = [
+    azurerm_network_interface.nixos_nic.id,
+  ]
 
-resource "azurerm_network_security_rule" "http" {
-  name                        = "http"
-  priority                    = 100
-  direction                   = "Inbound"
-  access                      = "Allow"
-  protocol                    = "Tcp"
-  source_port_range           = "*"
-  destination_port_range      = "80"
-  source_address_prefix       = "*"
-  destination_address_prefix  = "*"
-  resource_group_name         = azurerm_resource_group.vm_rg.name
-  network_security_group_name = azurerm_network_security_group.vm.name
-}
-
-resource "azurerm_network_security_rule" "https" {
-  name                        = "https"
-  priority                    = 101
-  direction                   = "Inbound"
-  access                      = "Allow"
-  protocol                    = "Tcp"
-  source_port_range           = "*"
-  destination_port_range      = "443"
-  source_address_prefix       = "*"
-  destination_address_prefix  = "*"
-  resource_group_name         = azurerm_resource_group.vm_rg.name
-  network_security_group_name = azurerm_network_security_group.vm.name
-}
-
-resource "azurerm_network_security_rule" "ssh_inbound" {
-  name                        = "sshin"
-  priority                    = 102
-  direction                   = "Inbound"
-  access                      = "Allow"
-  protocol                    = "Tcp"
-  source_port_range           = "*"
-  destination_port_range      = "22"
-  source_address_prefix       = "*"
-  destination_address_prefix  = "*"
-  resource_group_name         = azurerm_resource_group.vm_rg.name
-  network_security_group_name = azurerm_network_security_group.vm.name
-}
-
-resource "azurerm_network_security_rule" "ssh_outbound" {
-  name                        = "sshout"
-  priority                    = 100
-  direction                   = "Outbound"
-  access                      = "Allow"
-  protocol                    = "Tcp"
-  source_port_range           = "*"
-  destination_port_range      = "22"
-  source_address_prefix       = "*"
-  destination_address_prefix  = "*"
-  resource_group_name         = azurerm_resource_group.vm_rg.name
-  network_security_group_name = azurerm_network_security_group.vm.name
-}
-
-resource "azurerm_managed_disk" "nixos-image" {
-  # TODO: should probably be imported with terraform import
-  name                 = "nixos-image"
-  location             = local.resource_group_location
-  resource_group_name  = "vm-img-rg"
-  storage_account_type = "Premium_LRS"
-  hyper_v_generation   = "V2"
-
-  # https://github.com/hashicorp/terraform-provider-azurerm/issues/17792
-  create_option = "Empty"
-  lifecycle {
-    ignore_changes = all
-  }
-}
-
-resource "azurerm_image" "nixos-image" {
-  # TODO: should probably be imported with terraform import
-  name                = "nixos-image"
-  location            = local.resource_group_location
-  resource_group_name = "vm-img-rg"
-  hyper_v_generation  = "V2"
-
-  os_disk {
-    caching         = "ReadOnly"
-    managed_disk_id = azurerm_managed_disk.nixos-image.id
-    os_state        = "Generalized"
-    os_type         = "Linux"
-    storage_type    = "Premium_LRS"
-  }
-
-  timeouts {}
-
-  lifecycle {
-    ignore_changes = [
-      os_disk,
-      timeouts
-    ]
-  }
-}
-
-resource "azurerm_linux_virtual_machine" "vm" {
-  name                = "otanix-vm"
-  location            = local.resource_group_location
-  resource_group_name = azurerm_resource_group.vm_rg.name
-  # TODO: figure out how to create a custom NVMe image in order to use a cheaper size
-  size = "Standard_DC4as_cc_v5"
-
-  network_interface_ids = [azurerm_network_interface.vm.id]
-
-  admin_username = "otanix"
   admin_ssh_key {
-    public_key = "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQCiDxF/PZcYfX6N3CQOdQdW0PTPN7tgmwL6RPFDBlJURsxiTlmlRygjMVjrnxbIN9KGIP2p3hUKxensm0ftbl3fvdBG3nUnreGZAUQ7prSrli3tv+WITPFdONtDqcrMlYXbBy51/kFLUQMV7wBYurM/4bW/BOXtNZdk8/dLyCqAr1ynZmXFFHEB3APtlxaLlsyHEER5Nj7WDlxpFUxOqzasPg8MMGKQeN+d2TbUq1s0YDVwmk4F+Zqfj0H9AAYYt4zkiKbCkzTrJXk9snBPAyUot8jkAjZW5nu7quVoiHvWY3335iaa4o2JWDkm6/QEXYzKIbi865jOr3A5DRFytNFQJ7nmXfSNWAJmblSlatlszQLwmTLP5wkV+3zbRHv7WuvWivR76Xy0uyK331UvqrRbNha+EbVoWP5DyFnichBH7B/IgHkLHQJIuYiQBZ2ZwTuVpEoxyCUyl9acDtmUZvuomTAEjLRQElnhRo8iyDf92dl19Q9dG/1RWqLXUEDVBcLrlk89aEnIk7DuwvmVWzWM+On9S8ojH04TgRJM5ZkbQLAIqW5AkLqY6CP5Gzknsh7F4fl5Mq0FZlCOtFzxR+YgIn4IGndonm8/iqDQjJNOWVysFdNRPisPSR5AO5TiuxZSOcCuRkS56cZTHKjdqZS8CxiCfs2ZPlzMnzKJSNDXxQ=="
     username   = "otanix"
+    public_key = file("pubkey.pub")
   }
-
-  source_image_id = azurerm_image.nixos-image.id
 
   os_disk {
-    caching              = "ReadOnly"
-    storage_account_type = "Premium_LRS"
+    caching              = "ReadWrite"
+    storage_account_type = "StandardSSD_LRS"
   }
 
-  lifecycle {
-    create_before_destroy = true
+  # Use Modern Ubuntu 22.04 (Gen 2)
+  source_image_reference {
+    publisher = "Canonical"
+    offer     = "0001-com-ubuntu-server-jammy"
+    sku       = "22_04-lts-gen2"
+    version   = "latest"
   }
 
-  depends_on = [azurerm_image.nixos-image]
+  # NOTE: uncomment this to prepare a new host
+  # This script prepares Ubuntu so NixOS-Anywhere can connect as root
+  #user_data = base64encode(<<-EOF
+  #  #!/bin/bash
+  #  sed -i 's/#PermitRootLogin.*/PermitRootLogin yes/' /etc/ssh/sshd_config
+  #  mkdir -p /root/.ssh
+  #  cp /home/otanix/.ssh/authorized_keys /root/.ssh/authorized_keys
+  #  systemctl restart ssh
+  #EOF
+  #)
+}
+
+output "public_ip" {
+  value = azurerm_public_ip.nixos_pip.ip_address
 }

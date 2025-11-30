@@ -1,0 +1,78 @@
+name: Build & Deploy
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+    paths:
+      - "**/*.nix"
+      - flake.lock
+      - .github/workflows/deploy.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    if: github.ref != 'refs/heads/main'
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Install Nix
+        uses: cachix/install-nix-action@v31
+        with:
+          extra-nix-config: |
+            experimental-features = nix-command flakes
+
+      - name: Build NixOS Configuration
+        run: |
+          nix build .#nixosConfigurations.nixos-machine.config.system.build.toplevel -L
+
+  deploy:
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Install Nix
+        uses: cachix/install-nix-action@v31
+        with:
+          extra-nix-config: |
+            experimental-features = nix-command flakes
+
+      - name: Configure SSH
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          SSH_KNOWN_HOSTS: ${{ secrets.SSH_KNOWN_HOSTS }}
+        run: |
+          mkdir -p ~/.ssh
+          echo "$SSH_PRIVATE_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          echo "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/known_hosts
+          
+          cat >> ~/.ssh/config <<EOF
+          Host vm.otanix.fi
+            IdentityFile ~/.ssh/deploy_key
+            User deploy
+          EOF
+
+      - name: Build and Deploy NixOS Configuration
+        run: |
+          nix copy .#nixosConfigurations.nixos-machine.config.system.build.toplevel \
+            --to ssh://vm.otanix.fi
+
+          ssh vm.otanix.fi 'sudo $(realpath $(which rebuild-from-infra)) "$GITHUB_SHA"'
+
+      - name: Verify Deployment
+        run: |
+          ssh vm.otanix.fi "nixos-version"
+
+      - name: Cleanup
+        if: always()
+        run: |
+          rm -f ~/.ssh/deploy_key
