@@ -1,0 +1,9 @@
+keys:
+  - &admin_lajp age1yubikey1qf7f3cx2fstyv8m0p6mns038swdq6q3un9cv3833m2rh3l0klwud27qazw3
+  - &server_vm age12nrmcq068tt2c9rsdgg9chv6u85asd9ly38g8ajz3repm5sqndhq963pug
+creation_rules:
+  - path_regex: secrets/[^/]+\.(yaml|json|env|ini|txt)$
+    key_groups:
+      - age:
+        - *admin_lajp
+        - *server_vm

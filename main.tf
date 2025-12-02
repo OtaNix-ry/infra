@@ -116,6 +116,52 @@ resource "azurerm_dns_a_record" "nextcloud" {
   records             = [azurerm_public_ip.nixos_pip.ip_address]
 }
 
+resource "azurerm_dns_mx_record" "nextcloud_mail" {
+  name                = "nextcloud"
+  resource_group_name = azurerm_resource_group.dns_rg.name
+  zone_name           = azurerm_dns_zone.dns_zone.name
+
+  record {
+    preference = 1
+    exchange   = "mail.portfo.rs"
+  }
+
+  ttl = 3600
+}
+
+resource "azurerm_dns_txt_record" "nextcloud_mail_spf" {
+  name                = "nextcloud"
+  resource_group_name = azurerm_resource_group.dns_rg.name
+  zone_name           = azurerm_dns_zone.dns_zone.name
+  ttl                 = 300
+
+  record {
+    value = "v=spf1 a:mail.portfo.rs -all"
+  }
+}
+
+resource "azurerm_dns_txt_record" "nextcloud_mail_dkim" {
+  name                = "nextcloud._domainkey"
+  resource_group_name = azurerm_resource_group.dns_rg.name
+  zone_name           = azurerm_dns_zone.dns_zone.name
+  ttl                 = 300
+
+  record {
+    value = "v=DKIM1; k=rsa; p=MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAwvse4D9ofwMAvHnETJn31hE3OiiVlBbMqQjumoL9cj36TBFZ7HxFy/1Ew/xQ1Ka7SaDw4UhM6xtWIu6BGemqBDBTqa7TfV7yirFG2uSjMXP5f1xwOPy3thG5QrIxkZpD6e0VPso05e5uobWQof5GCuak3xlV4SZNUBbpCQaDFVCgrSYHfzAur37a4hovRfHmY47Mcn/7OpERU7+xHun0Ma2zgY0R7UD/S7Wa33rjErGoo6u9czExdk+/2YZV33gZCfga7GYpoiDIZxS/Zqf1dM8uDeKC7265xBNIoVpGLbdCgxO2rvkhKnuB84LPcOAai5d2FkVTcDJki71NW6LA+wIDAQAB"
+  }
+}
+
+resource "azurerm_dns_txt_record" "nextcloud_mail_dmarc" {
+  name                = "_dmarc.nextcloud"
+  resource_group_name = azurerm_resource_group.dns_rg.name
+  zone_name           = azurerm_dns_zone.dns_zone.name
+  ttl                 = 300
+
+  record {
+    value = "v=DMARC1; p=none"
+  }
+}
+
 resource "azurerm_resource_group" "nixos_rg" {
   name     = "nixos-resources"
   location = "North Europe"
@@ -140,6 +186,10 @@ resource "azurerm_public_ip" "nixos_pip" {
   resource_group_name = azurerm_resource_group.nixos_rg.name
   location            = azurerm_resource_group.nixos_rg.location
   allocation_method   = "Static"
+
+  domain_name_label = "otanix-nextcloud"
+
+  reverse_fqdn = "nextcloud.otanix.fi"
 }
 
 resource "azurerm_network_security_group" "nixos_nsg" {
@@ -155,6 +205,30 @@ resource "azurerm_network_security_group" "nixos_nsg" {
     protocol                   = "Tcp"
     source_port_range          = "*"
     destination_port_range     = "22"
+    source_address_prefix      = "*"
+    destination_address_prefix = "*"
+  }
+
+  security_rule {
+    name                       = "HTTP"
+    priority                   = 1002
+    direction                  = "Inbound"
+    access                     = "Allow"
+    protocol                   = "Tcp"
+    source_port_range          = "*"
+    destination_port_range     = "80"
+    source_address_prefix      = "*"
+    destination_address_prefix = "*"
+  }
+
+  security_rule {
+    name                       = "HTTPS"
+    priority                   = 1003
+    direction                  = "Inbound"
+    access                     = "Allow"
+    protocol                   = "Tcp"
+    source_port_range          = "*"
+    destination_port_range     = "443"
     source_address_prefix      = "*"
     destination_address_prefix = "*"
   }
@@ -226,4 +300,39 @@ resource "azurerm_linux_virtual_machine" "nixos_vm" {
 
 output "public_ip" {
   value = azurerm_public_ip.nixos_pip.ip_address
+}
+
+# main.tf
+
+# 1. Generate a random suffix so the storage name is unique globally
+resource "random_string" "storage_suffix" {
+  length  = 6
+  special = false
+  upper   = false
+}
+
+# 2. Create the Storage Account
+resource "azurerm_storage_account" "nextcloud_sa" {
+  name                     = "nextcloudstore${random_string.storage_suffix.result}"
+  resource_group_name      = azurerm_resource_group.nixos_rg.name
+  location                 = azurerm_resource_group.nixos_rg.location
+  account_tier             = "Standard"
+  account_replication_type = "LRS" # Locally Redundant (Cheapest)
+}
+
+# 3. Create the Container (The Bucket)
+resource "azurerm_storage_container" "nextcloud_bucket" {
+  name                  = "nextcloud-data"
+  storage_account_name  = azurerm_storage_account.nextcloud_sa.name
+  container_access_type = "private"
+}
+
+# 4. Output the credentials needed for NixOS
+output "storage_account_name" {
+  value = azurerm_storage_account.nextcloud_sa.name
+}
+
+output "storage_primary_key" {
+  value     = azurerm_storage_account.nextcloud_sa.primary_access_key
+  sensitive = true
 }

@@ -22,6 +22,8 @@ in
     groups.deploy = { };
   };
 
+  nix.settings.trusted-users = [ "deploy" ];
+
   security.sudo.extraRules = [
     {
       users = [ "deploy" ];

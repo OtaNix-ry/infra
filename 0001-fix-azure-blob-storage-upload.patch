@@ -1,0 +1,32 @@
+From cf4366c54102bcae62de573619ab71df6f8ac1eb Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Luukas=20P=C3=B6rtfors?= <lajp@iki.fi>
+Date: Wed, 3 Dec 2025 13:13:32 +0100
+Subject: [PATCH] fix: azure blob storage upload
+
+---
+ lib/private/Files/ObjectStore/Azure.php | 5 ++++-
+ 1 file changed, 4 insertions(+), 1 deletion(-)
+
+diff --git a/lib/private/Files/ObjectStore/Azure.php b/lib/private/Files/ObjectStore/Azure.php
+index 2729bb3..424e004 100644
+--- a/lib/private/Files/ObjectStore/Azure.php
++++ b/lib/private/Files/ObjectStore/Azure.php
+@@ -85,11 +85,14 @@ class Azure implements IObjectStore {
+ 	}
+ 
+ 	public function writeObject($urn, $stream, ?string $mimetype = null) {
++    $buffer = fopen('php://temp/maxmemory:33553332', 'rwb+');
++    stream_copy_to_stream($stream, $buffer);
++
+ 		$options = new CreateBlockBlobOptions();
+ 		if ($mimetype) {
+ 			$options->setContentType($mimetype);
+ 		}
+-		$this->getBlobClient()->createBlockBlob($this->containerName, $urn, $stream, $options);
++		$this->getBlobClient()->createBlockBlob($this->containerName, $urn, $buffer, $options);
+ 	}
+ 
+ 	/**
+-- 
+2.51.2
+
