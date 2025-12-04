@@ -51,6 +51,13 @@
       mail_smtpname = "system@nextcloud.otanix.fi";
     };
 
+    phpOptions = {
+      # This forces PHP to flush data to Nginx immediately, preventing
+      # it from accumulating the file in memory.
+      "output_buffering" = "0";
+      "max_execution_time" = "300";
+    };
+
     database.createLocally = true;
 
     secretFile = config.sops.secrets.nextcloud.path;
