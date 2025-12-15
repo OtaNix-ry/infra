@@ -116,6 +116,14 @@ resource "azurerm_dns_a_record" "nextcloud" {
   records             = [azurerm_public_ip.nixos_pip.ip_address]
 }
 
+resource "azurerm_dns_a_record" "meet" {
+  name                = "meet"
+  resource_group_name = azurerm_resource_group.dns_rg.name
+  zone_name           = azurerm_dns_zone.dns_zone.name
+  ttl                 = 300
+  records             = [azurerm_public_ip.nixos_pip.ip_address]
+}
+
 resource "azurerm_dns_mx_record" "nextcloud_mail" {
   name                = "nextcloud"
   resource_group_name = azurerm_resource_group.dns_rg.name
@@ -229,6 +237,18 @@ resource "azurerm_network_security_group" "nixos_nsg" {
     protocol                   = "Tcp"
     source_port_range          = "*"
     destination_port_range     = "443"
+    source_address_prefix      = "*"
+    destination_address_prefix = "*"
+  }
+
+  security_rule {
+    name                       = "jitsi-videobridge-udp"
+    priority                   = 1004
+    direction                  = "Inbound"
+    access                     = "Allow"
+    protocol                   = "Udp"
+    source_port_range          = "*"
+    destination_port_range     = "10000"
     source_address_prefix      = "*"
     destination_address_prefix = "*"
   }

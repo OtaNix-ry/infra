@@ -12,6 +12,7 @@
     # blocked by Azure
     #./modules/mail.nix
     ./modules/sops.nix
+    ./modules/jitsi.nix
   ];
 
   # 1. DISK LAYOUT (UEFI / GPT)
