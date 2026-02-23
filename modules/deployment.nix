@@ -13,7 +13,7 @@ let
       exit 1
     fi
 
-    ${lib.getExe config.system.build.nixos-rebuild} switch --flake github:Tietokilta/infra/"$rev" --refresh
+    ${lib.getExe config.system.build.nixos-rebuild} switch --flake github:OtaNix-ry/infra/"$rev" --refresh
   '';
 in
 {
