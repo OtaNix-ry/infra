@@ -9,3 +9,4 @@ terraform.exe
 *.tfstate
 *.tfstate.backup
 result
+.envrc
