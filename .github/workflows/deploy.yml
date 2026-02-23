@@ -24,15 +24,30 @@ jobs:
       - name: Install Nix
         uses: cachix/install-nix-action@v31
         with:
-          extra-nix-config: |
+          extra_nix_config: |
             experimental-features = nix-command flakes
+
+      - name: Restore and save /nix/store
+        uses: nix-community/cache-nix-action@v7
+        with:
+          primary-key: nix-${{ runner.os }}-${{ hashFiles('**/*.nix', '**/flake.lock') }}
+          restore-prefixes-first-match: nix-${{ runner.os }}
+          purge: true
 
       - name: Build NixOS Configuration
         run: |
-          nix build .#nixosConfigurations.nixos-machine.config.system.build.toplevel -L
+          nix build .#nixosConfigurations.nixos-machine.config.system.build.toplevel -L \
+            --out-link nixos-machine
+
+      - name: Nix GC
+        run: |
+          nix-collect-garbage
 
   deploy:
     runs-on: ubuntu-latest
+    concurrency:
+      group: ${{ github.workflow }}-${{ github.ref }}
+      cancel-in-progress: true
     if: github.ref == 'refs/heads/main'
     steps:
       - name: Checkout repository
@@ -41,8 +56,15 @@ jobs:
       - name: Install Nix
         uses: cachix/install-nix-action@v31
         with:
-          extra-nix-config: |
+          extra_nix_config: |
             experimental-features = nix-command flakes
+
+      - name: Restore and save /nix/store
+        uses: nix-community/cache-nix-action@v7
+        with:
+          primary-key: nix-${{ runner.os }}-${{ hashFiles('**/*.nix', '**/flake.lock') }}
+          restore-prefixes-first-match: nix-${{ runner.os }}
+          purge: true
 
       - name: Configure SSH
         env:
@@ -63,14 +85,17 @@ jobs:
 
       - name: Build and Deploy NixOS Configuration
         run: |
+          nix build .#nixosConfigurations.nixos-machine.config.system.build.toplevel -L \
+            --out-link nixos-machine
+
           nix copy .#nixosConfigurations.nixos-machine.config.system.build.toplevel \
             --to ssh://vm.otanix.fi
 
           ssh vm.otanix.fi "sudo \$(realpath \$(which rebuild-from-infra)) \"$GITHUB_SHA\""
 
-      - name: Verify Deployment
+      - name: Nix GC
         run: |
-          ssh vm.otanix.fi "nixos-version"
+          nix-collect-garbage
 
       - name: Cleanup
         if: always()
