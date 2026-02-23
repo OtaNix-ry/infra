@@ -66,7 +66,7 @@ jobs:
           nix copy .#nixosConfigurations.nixos-machine.config.system.build.toplevel \
             --to ssh://vm.otanix.fi
 
-          ssh vm.otanix.fi 'sudo $(realpath $(which rebuild-from-infra)) "$GITHUB_SHA"'
+          ssh vm.otanix.fi "sudo \$(realpath \$(which rebuild-from-infra)) \"$GITHUB_SHA\""
 
       - name: Verify Deployment
         run: |
