@@ -1,0 +1,31 @@
+diff --git a/lib/Service/SubmissionService.php b/lib/Service/SubmissionService.php
+index 67f53f4..f6c3a88 100644
+--- a/lib/Service/SubmissionService.php
++++ b/lib/Service/SubmissionService.php
+@@ -182,17 +182,21 @@ class SubmissionService {
+ 			$node = $node->getParent();
+ 		}
+
+-		// Check if file exists, create otherwise.
++		// Check if file exists. Delay creating a new file until after generating
++		// the spreadsheet content, because some object stores materialize an empty
++		// placeholder that is not readable by PhpSpreadsheet.
++		$file = null;
+ 		try {
+ 			/** @var File $file */
+ 			$file = $node->get($fileName);
+ 		} catch (\OCP\Files\NotFoundException $e) {
+-			$node->newFile($fileName);
+-			/** @var File $file */
+-			$file = $node->get($fileName);
+ 		}
+
+ 		// Get Data
+ 		$submissionsData = $this->getSubmissionsData($form, $fileFormat, $file);
++
++		if ($file === null) {
++			$file = $node->newFile($fileName);
++		}
+
+ 		// Write the data to file
+ 		try {

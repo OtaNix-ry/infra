@@ -29,6 +29,10 @@
           disko.nixosModules.disko
           sops-nix.nixosModules.sops
           simple-nixos-mailserver.nixosModule
+          {
+            nixpkgs.config.allowUnfreePredicate =
+              pkg: builtins.elem (nixpkgs.lib.getName pkg) [ "corefonts" ];
+          }
           ./configuration.nix
         ];
         specialArgs = {

@@ -116,6 +116,14 @@ resource "azurerm_dns_a_record" "nextcloud" {
   records             = [azurerm_public_ip.nixos_pip.ip_address]
 }
 
+resource "azurerm_dns_a_record" "office" {
+  name                = "office"
+  resource_group_name = azurerm_resource_group.dns_rg.name
+  zone_name           = azurerm_dns_zone.dns_zone.name
+  ttl                 = 300
+  records             = [azurerm_public_ip.nixos_pip.ip_address]
+}
+
 resource "azurerm_dns_a_record" "meet" {
   name                = "meet"
   resource_group_name = azurerm_resource_group.dns_rg.name

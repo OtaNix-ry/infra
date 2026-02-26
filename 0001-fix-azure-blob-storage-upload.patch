@@ -4,19 +4,20 @@ Date: Wed, 3 Dec 2025 13:13:32 +0100
 Subject: [PATCH] fix: azure blob storage upload
 
 ---
- lib/private/Files/ObjectStore/Azure.php | 5 ++++-
- 1 file changed, 4 insertions(+), 1 deletion(-)
+ lib/private/Files/ObjectStore/Azure.php | 6 +++++-
+ 1 file changed, 5 insertions(+), 1 deletion(-)
 
 diff --git a/lib/private/Files/ObjectStore/Azure.php b/lib/private/Files/ObjectStore/Azure.php
 index 2729bb3..424e004 100644
 --- a/lib/private/Files/ObjectStore/Azure.php
 +++ b/lib/private/Files/ObjectStore/Azure.php
-@@ -85,11 +85,14 @@ class Azure implements IObjectStore {
+@@ -85,11 +85,15 @@ class Azure implements IObjectStore {
  	}
  
  	public function writeObject($urn, $stream, ?string $mimetype = null) {
 +    $buffer = fopen('php://temp/maxmemory:33553332', 'rwb+');
 +    stream_copy_to_stream($stream, $buffer);
++    rewind($buffer);
 +
  		$options = new CreateBlockBlobOptions();
  		if ($mimetype) {
@@ -29,4 +30,3 @@ index 2729bb3..424e004 100644
  	/**
 -- 
 2.51.2
-
