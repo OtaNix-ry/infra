@@ -6,14 +6,7 @@
 }:
 let
   rebuild-from-infra = pkgs.writeShellScriptBin "rebuild-from-infra" ''
-    rev=$1
-    shift
-    if [[ -z "$rev" ]]; then
-      echo "No commit rev given to rebuild from, please give a commit rev as an argument" >&2
-      exit 1
-    fi
-
-    ${lib.getExe config.system.build.nixos-rebuild} switch --flake github:OtaNix-ry/infra/"$rev" --refresh
+    ${lib.getExe config.system.build.nixos-rebuild} switch --flake github:OtaNix-ry/infra --refresh
   '';
 in
 {
@@ -36,7 +29,7 @@ in
       users = [ "deploy" ];
       commands = [
         {
-          command = "${lib.getExe rebuild-from-infra} *";
+          command = "${lib.getExe rebuild-from-infra}";
           options = [
             "SETENV"
             "NOPASSWD"
