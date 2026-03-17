@@ -17,6 +17,13 @@ terraform {
       version = "=4.0.0"
     }
   }
+
+  backend "azurerm" {
+    resource_group_name  = "nixos-resources"
+    storage_account_name = "otanixterraformstate"
+    container_name       = "tfstate"
+    key                  = "terraform.tfstate"
+  }
 }
 
 locals {
