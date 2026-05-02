@@ -139,6 +139,14 @@ resource "azurerm_dns_a_record" "meet" {
   records             = [azurerm_public_ip.nixos_pip.ip_address]
 }
 
+resource "azurerm_dns_a_record" "matrix" {
+  name                = "matrix"
+  resource_group_name = azurerm_resource_group.dns_rg.name
+  zone_name           = azurerm_dns_zone.dns_zone.name
+  ttl                 = 300
+  records             = [azurerm_public_ip.nixos_pip.ip_address]
+}
+
 resource "azurerm_dns_mx_record" "nextcloud_mail" {
   name                = "nextcloud"
   resource_group_name = azurerm_resource_group.dns_rg.name
@@ -303,14 +311,14 @@ resource "azurerm_linux_virtual_machine" "nixos_vm" {
   name                = "nixos-machine"
   resource_group_name = azurerm_resource_group.nixos_rg.name
   location            = azurerm_resource_group.nixos_rg.location
-  
+
   # You can now use ANY size, including v2/v3
-  size                = "Standard_B2s_v2" 
-  
+  size = "Standard_B2s_v2"
+
   # IMPORTANT: Secure Boot must be OFF for NixOS
   secure_boot_enabled = false
-  
-  admin_username      = "otanix"
+
+  admin_username = "otanix"
   network_interface_ids = [
     azurerm_network_interface.nixos_nic.id,
   ]

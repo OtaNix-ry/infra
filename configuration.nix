@@ -13,6 +13,7 @@
     #./modules/mail.nix
     ./modules/sops.nix
     ./modules/jitsi.nix
+    ./modules/matrix.nix
   ];
 
   # 1. DISK LAYOUT (UEFI / GPT)
