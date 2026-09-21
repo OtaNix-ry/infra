@@ -1,6 +1,5 @@
 {
   config,
-  lib,
   pkgs,
   ...
 }:
@@ -9,6 +8,8 @@ let
   onlyofficeHost = "office.otanix.fi";
   onlyofficeJwtSopsFile = ../secrets/onlyoffice-jwt.txt;
   onlyofficeNonceSopsFile = ../secrets/onlyoffice-nginx-nonce.txt;
+
+  nextcloud' = pkgs.nextcloud34;
 in
 {
   services.nginx.virtualHosts.${config.services.nextcloud.hostName} = {
@@ -61,15 +62,15 @@ in
 
   services.nextcloud = {
     enable = true;
-    package = pkgs.nextcloud32.overrideAttrs (prev: {
+    package = nextcloud'.overrideAttrs (prev: {
       # Patch is based on this issue: https://github.com/nextcloud/server/issues/14391
       patches = (prev.patches or [ ]) ++ [ ../0001-fix-azure-blob-storage-upload.patch ];
     });
     extraApps = {
-      forms = pkgs.nextcloud32Packages.apps.forms.overrideAttrs (prev: {
+      forms = nextcloud'.packages.apps.forms.overrideAttrs (prev: {
         patches = (prev.patches or [ ]) ++ [ ../0002-fix-forms-linking-with-objectstore.patch ];
       });
-      inherit (pkgs.nextcloud32Packages.apps) onlyoffice;
+      inherit (nextcloud'.packages.apps) onlyoffice;
     };
     hostName = nextcloudHost;
     https = true;

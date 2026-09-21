@@ -6,7 +6,7 @@
 let
   fqdn = "matrix.otanix.fi";
   port = 3987;
-  synapse-admin' = pkgs.synapse-admin-etkecc.withConfig {
+  synapse-admin' = pkgs.ketesa.withConfig {
     restrictBaseUrl = "https://${fqdn}";
   };
 in
