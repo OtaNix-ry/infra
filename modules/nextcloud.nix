@@ -9,7 +9,7 @@ let
   onlyofficeJwtSopsFile = ../secrets/onlyoffice-jwt.txt;
   onlyofficeNonceSopsFile = ../secrets/onlyoffice-nginx-nonce.txt;
 
-  nextcloud' = pkgs.nextcloud34;
+  nextcloud' = pkgs.nextcloud35;
 in
 {
   services.nginx.virtualHosts.${config.services.nextcloud.hostName} = {
