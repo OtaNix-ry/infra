@@ -6,7 +6,7 @@
 }:
 let
   rebuild-from-infra = pkgs.writeShellScriptBin "rebuild-from-infra" ''
-    ${lib.getExe config.system.build.nixos-rebuild} switch --flake github:OtaNix-ry/infra --refresh
+    ${lib.getExe config.system.build.nixos-rebuild} switch --flake github:OtaNix-ry/infra#nixos-machine --refresh
   '';
 in
 {
