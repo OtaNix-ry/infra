@@ -64,7 +64,7 @@
 
   # This prevents it from trying to run random scripts found in Azure metadata.
   services.cloud-init.enable = lib.mkForce false;
-
+  networking.hostName = "nixos-machine";
   nix = {
     gc = {
       automatic = true;
