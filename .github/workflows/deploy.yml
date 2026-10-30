@@ -32,6 +32,8 @@ jobs:
         with:
           primary-key: nix-${{ runner.os }}-${{ hashFiles('**/*.nix', '**/flake.lock') }}
           restore-prefixes-first-match: nix-${{ runner.os }}
+          purge-prefixes: nix-${{ runner.os }}
+          purge-primary-key: never
           purge: true
 
       - name: Build NixOS Configuration
@@ -65,6 +67,9 @@ jobs:
           primary-key: nix-${{ runner.os }}-${{ hashFiles('**/*.nix', '**/flake.lock') }}
           restore-prefixes-first-match: nix-${{ runner.os }}
           purge: true
+          purge-prefixes: nix-${{ runner.os }}
+          purge-primary-key: never
+
 
       - name: Configure SSH
         env:
@@ -76,7 +81,7 @@ jobs:
           chmod 600 ~/.ssh/deploy_key
           echo "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
           chmod 600 ~/.ssh/known_hosts
-          
+
           cat >> ~/.ssh/config <<EOF
           Host vm.otanix.fi
             IdentityFile ~/.ssh/deploy_key
