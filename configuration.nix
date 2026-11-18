@@ -14,6 +14,7 @@
     ./modules/sops.nix
     ./modules/jitsi.nix
     ./modules/matrix.nix
+    ./modules/fix-nginx-rce.nix
   ];
 
   # 1. DISK LAYOUT (UEFI / GPT)
